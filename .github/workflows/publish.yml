@@ -1,0 +1,65 @@
+name: Publish ActiveMQ Docker image
+
+on:
+  push:
+    tags:
+      - '*'
+  release:
+    types:
+      - created
+
+jobs:
+  buildx:
+    name: Publish ActiveMQ Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute Tag
+        uses: actions/github-script@v6
+        id: compute-tag
+        with:
+          result-encoding: string
+          script: |
+            if (context.eventName === "push") {
+              if (context.ref.startsWith("refs/tags/")) {
+                return context.ref.slice(10);
+              }
+            }
+            return "FALSE";
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        if: ${{ steps.compute-tag.outputs.result != 'FALSE' }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        with:
+          platforms: all
+
+      - name: Install Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          version: latest
+
+      - name: Clone ActiveMQ repository
+        uses: actions/checkout@v3
+        with:
+          repository: 'apache/activemq-artemis'
+
+      - name: Prepare Docker images
+        working-directory: ./artemis-docker
+        run: ./prepare-docker.sh --from-release --artemis-version ${{ steps.compute-tag.outputs.result }}
+
+      - name: Build Debian image
+        uses: docker/build-push-action@v2
+        if: ${{ steps.compute-tag.outputs.result != 'FALSE' }}
+        with:
+          context: artemis-docker/_TMP_/artemis/2.21.0
+          file: artemis-docker/_TMP_/artemis/2.21.0/docker/Dockerfile-debian
+          tags: ghcr.io/ls1intum/activemq-broker-docker-debian:${{ steps.compute-tag.outputs.result }}
+          push: true
+        
