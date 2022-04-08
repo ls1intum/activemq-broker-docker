@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - '*'
-  release:
-    types:
-      - created
 
 jobs:
   buildx:
@@ -54,12 +51,30 @@ jobs:
         working-directory: ./artemis-docker
         run: ./prepare-docker.sh --from-release --artemis-version ${{ steps.compute-tag.outputs.result }}
 
-      - name: Build Debian image
+      - name: Build & Push Debian image
         uses: docker/build-push-action@v2
         if: ${{ steps.compute-tag.outputs.result != 'FALSE' }}
         with:
-          context: artemis-docker/_TMP_/artemis/2.21.0
-          file: artemis-docker/_TMP_/artemis/2.21.0/docker/Dockerfile-debian
+          context: artemis-docker/_TMP_/artemis/ ${{ steps.compute-tag.outputs.result }}
+          file: artemis-docker/_TMP_/artemis/ ${{ steps.compute-tag.outputs.result }}/docker/Dockerfile-debian
           tags: ghcr.io/ls1intum/activemq-broker-docker-debian:${{ steps.compute-tag.outputs.result }}
           push: true
         
+      - name: Build & Push CentOS image
+        uses: docker/build-push-action@v2
+        if: ${{ steps.compute-tag.outputs.result != 'FALSE' }}
+        with:
+          context: artemis-docker/_TMP_/artemis/ ${{ steps.compute-tag.outputs.result }}
+          file: artemis-docker/_TMP_/artemis/ ${{ steps.compute-tag.outputs.result }}/docker/Dockerfile-centos
+          tags: ghcr.io/ls1intum/activemq-broker-docker-centos:${{ steps.compute-tag.outputs.result }}
+          push: true
+
+      - name: Build & Push AdoptOpen JDK 11 image
+        uses: docker/build-push-action@v2
+        if: ${{ steps.compute-tag.outputs.result != 'FALSE' }}
+        with:
+          context: artemis-docker/_TMP_/artemis/ ${{ steps.compute-tag.outputs.result }}
+          file: artemis-docker/_TMP_/artemis/ ${{ steps.compute-tag.outputs.result }}/docker/Dockerfile--adoptopenjdk-11
+          tags: ghcr.io/ls1intum/activemq-broker-docker--adoptopenjdk-11:${{ steps.compute-tag.outputs.result }}
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
